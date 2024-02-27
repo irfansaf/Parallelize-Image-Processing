@@ -132,6 +132,10 @@ void midterm::applyBlur() {
             }
 
             imwrite(imagePaths[i].toStdString(), blurredImage);
+            // Clear the display image
+             ui.imageLabel->clear();
+            // Display the blurred image
+            displayImage(imagePaths[i]);
             }
 
         ExecutionTimeParallel();
