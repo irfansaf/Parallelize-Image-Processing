@@ -29,10 +29,15 @@ private:
     QImage selectedImage;
     QMutex mutex;
     QStringList imagePaths;
-    std::chrono::time_point<std::chrono::steady_clock> startTime;
+    std::chrono::time_point<std::chrono::steady_clock> startParallel;
+    std::chrono::time_point<std::chrono::steady_clock> startSequential;
     int currentIndex;
+
+    QLabel* parallelStatusLabel;
+    QLabel* sequentialStatusLabel;
 
     void displayImage(const QString& imagePath);
     void updateStatus(const QString& status);
-    void updateExecutionTime();
+    void ExecutionTimeParallel();
+    void ExecutionTimeSequential();
 };

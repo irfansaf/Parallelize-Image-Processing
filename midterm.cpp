@@ -25,6 +25,12 @@ midterm::midterm(QWidget *parent)
 
     ui.prevImageButton->setEnabled(false);
     ui.nextImageButton->setEnabled(false);
+
+    parallelStatusLabel = new QLabel(this);
+    ui.statusBar->addWidget(parallelStatusLabel);
+
+    sequentialStatusLabel = new QLabel(this);
+    ui.statusBar->addWidget(sequentialStatusLabel);
 }
 
 midterm::~midterm()
@@ -92,9 +98,8 @@ void midterm::applyBlur() {
 
     omp_set_num_threads(std::thread::hardware_concurrency());
 
-    startTime = std::chrono::steady_clock::now();
-
     try {
+        startParallel = std::chrono::steady_clock::now();
         // Loop through all selected images and apply Gaussian blur to each of them in parallel
         #pragma omp parallel for
         for (int i = 0; i < imagePaths.size(); i++) {
@@ -129,7 +134,41 @@ void midterm::applyBlur() {
             imwrite(imagePaths[i].toStdString(), blurredImage);
             }
 
-        updateExecutionTime();
+        ExecutionTimeParallel();
+
+        // Sequential execution
+        startSequential = std::chrono::steady_clock::now();
+        for (int i = 0; i < imagePaths.size(); i++) {
+			Mat image = imread(imagePaths[i].toStdString());
+            if (image.empty()) {
+				updateStatus(QString("Failed to load the image: %1").arg(imagePaths[i]));
+				continue;
+			}
+
+			// Check if the blur value is valid
+            if (blurValue <= 0) {
+				updateStatus("Invalid blur value");
+				continue;
+			}
+
+			// Check if the kernel size is odd
+			int kernelSize = blurValue * 2 + 1;
+            if (kernelSize % 2 == 0) {
+				updateStatus("Kernel size must be odd");
+				continue;
+			}
+
+			Mat blurredImage;
+            try {
+				GaussianBlur(image, blurredImage, Size(kernelSize, kernelSize), 0);
+			}
+            catch (const cv::Exception& e) {
+				updateStatus(QString("Failed to apply blur: %1").arg(e.what()));
+				continue;
+			}
+
+		}
+        ExecutionTimeSequential();
     }
     catch (const cv::Exception& ex) {
         // Handle OpenCV exceptions
@@ -180,8 +219,14 @@ void midterm::updateStatus(const QString& status) {
     ui.statusLabel->setText(status);
 }
 
-void midterm::updateExecutionTime() {
-    auto endTime = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-    updateStatus(QString("Parallelized execution time: %1 ms").arg(duration));
+void midterm::ExecutionTimeSequential() {
+    auto endSequential = std::chrono::steady_clock::now();
+    auto durationSequential = std::chrono::duration_cast<std::chrono::milliseconds>(endSequential - startSequential);
+    sequentialStatusLabel->setText(QString("Sequential execution time: %1 ms").arg(durationSequential.count()));
+}
+
+void midterm::ExecutionTimeParallel() {
+    auto endParallel = std::chrono::steady_clock::now();
+    auto durationParallel = std::chrono::duration_cast<std::chrono::milliseconds>(endParallel - startParallel);
+    parallelStatusLabel->setText(QString("Parallel execution time: %1 ms").arg(durationParallel.count()));
 }
